@@ -1,215 +1,156 @@
-import { from, fromEvent, Observable, of, combineLatest, interval, timer} from 'rxjs';
-import { map, catchError, debounceTime, switchMap, delay, find, scan, filter, pluck, skip, startWith, take, takeLast, throttle} from 'rxjs/operators';
+import { from, fromEvent, Observable, of, combineLatest, interval, timer, merge } from "rxjs";
+import {
+  map,
+  catchError,
+  debounceTime,
+  switchMap,
+  delay,
+  find,
+  scan,
+  filter,
+  pluck,
+  skip,
+  startWith,
+  take,
+  takeLast,
+  throttle,
+  distinctUntilChanged,
+  mergeMap,
+  reduce,
+  mergeAll,
+  toArray,
+  flatMap
+} from "rxjs/operators";
 
-const inputElement: HTMLInputElement = document.querySelector('#refInput') as HTMLInputElement;
+const inputElement: HTMLInputElement = document.querySelector("#refInput") as HTMLInputElement;
+const genderElement: HTMLSelectElement = document.querySelector("#gender") as HTMLSelectElement;
+const statusElement: HTMLSelectElement = document.querySelector("#status") as HTMLSelectElement;
+const btnElement: HTMLButtonElement = document.querySelector("#getData") as HTMLButtonElement;
 
+interface ICharacter {
+  created: string;
+  episode: string[];
+  gender: "unknown" | "Male" | "Female";
+  id: number;
+  image: string;
+  location: ILocation;
+  name: string;
+  origin: IOrigin;
+  species: string;
+  status: "unknown" | "dead" | "alive";
+  type: string;
+  url: string;
+}
 
-type IRepo =  { name: string, owner: { repos_url: string } }
-type IGithubRepos = { items: IRepo[] }
+interface ILocation {
+  name: string;
+  url: string;
+}
+interface IOrigin {
+  name: string;
+  url: string;
+}
+interface IInfo {
+  count: number;
+  next: string;
+  pages: number;
+  prev: string;
+}
+interface IResponse {
+  info: IInfo;
+  results: ICharacter[];
+}
+function createDom(chars: ICharacter[]) {
+  console.log("createDom: ", chars);
+  const wrapperElement: HTMLInputElement = document.querySelector(".wrapper") as HTMLInputElement;
+  wrapperElement.innerHTML = "";
+  chars.forEach(char => {
+    const div = document.createElement("div");
+    const a: HTMLAnchorElement = document.createElement("a");
+    const img: HTMLImageElement = document.createElement("img");
+    a.innerHTML = char.name;
+    a.setAttribute("href", char.url);
+    img.setAttribute("src", char.image);
+    img.setAttribute("width", "50");
+    img.setAttribute("heigth", "50");
+    div.appendChild(a);
+    div.appendChild(img);
+    wrapperElement.appendChild(div);
+  });
+}
 
+const filter$: Observable<string> = fromEvent(inputElement, "input").pipe(pluck("target", "value"));
+const gender$: Observable<string> = fromEvent(genderElement, "change").pipe(pluck("target", "value"));
+const status$: Observable<string> = fromEvent(statusElement, "change").pipe(pluck("target", "value"));
 
-const source1$: Observable<any> = fromEvent(inputElement, 'click').pipe(
-  throttle(x => interval(3000))
+gender$.subscribe(console.log);
+status$.subscribe(console.log);
+
+const fetched$: Observable<ICharacter[]> = from(
+  fetch(`https://rickandmortyapi.com/api/character/`).then((res: Response) => res.json())
+).pipe(
+  pluck("results"),
+  catchError((err: any) => {
+    console.log(err);
+    return of(err);
+  })
 );
 
-source1$.subscribe(data => console.log('double click'))
+fetched$.subscribe(() =>
+  from(fetched$).subscribe(createDom, (err: Error) => {
+    console.log(err);
+  })
+);
 
-
-
-
-const source$: Observable<IGithubRepos> = fromEvent(inputElement, 'input').pipe(
-  map((event: Event) => (event.target as any).value),
+const filterData$: Observable<ICharacter[]> = filter$.pipe(
+  map(val => val),
   debounceTime(500),
-  switchMap((value: string) => {
-    console.log(value)
-    return from(
-      fetch(`https://api.github.com/search/repositories?q=${value}`)
-      .then((res: Response) => res.json())
-      .catch((err) => console.log(err))
-    )
-  }),
-  catchError((err: Error, caught: any) => {
-    return of(err)
+  distinctUntilChanged(),
+  mergeMap(fil => {
+    return fetched$.pipe(
+      mergeMap(val => val),
+      filter((char: ICharacter) => char.name.toUpperCase().includes(fil.toUpperCase())),
+      toArray()
+    );
   })
 );
 
-source$.subscribe((repo: IGithubRepos) => {
-  const wrapperElement: HTMLInputElement = document.querySelector('.wrapper') as HTMLInputElement;
-  wrapperElement.innerHTML = '';
-
-  repo.items.forEach((item: IRepo) => {
-    const a: HTMLAnchorElement = document.createElement('a');
-    a.innerHTML = item.name;
-    a.setAttribute('href', item.owner.repos_url)
-    wrapperElement.appendChild(a)
+const statusData$: Observable<ICharacter[]> = status$.pipe(
+  map(val => val),
+  mergeMap(status => {
+    return fetched$.pipe(
+      mergeMap(val => val),
+      filter((char: ICharacter) => char.status === status),
+      toArray()
+    );
   })
-},
-  (err: Error) => {
-    console.log(err)
-  }
-)
-
-const a$: Observable<number> = of(1, 2).pipe(
-  delay(2000)
 );
-const b$: Observable<number> = of(2);
-const d$: Observable<number> = of(4);
 
-const array$ = [ a$, b$, d$,];
+const genderData$: Observable<ICharacter[]> = gender$.pipe(
+  map(val => val),
+  mergeMap(gender => {
+    return fetched$.pipe(
+      mergeMap(val => val),
+      filter((char: ICharacter) => char.gender === gender),
+      toArray()
+    );
+  })
+);
 
-
-const c$: Observable<number> = combineLatest(
-  ...array$,
-  (a: number, b: number, d: number) => a + b + d
-)
-
-c$.subscribe((c: number) => console.log(c))
-
-
-// interval(1000).pipe(
-//   map(() => new Date())
-// ).subscribe((date: Date) => {
-//   console.log(date)
-// })
-
-
-
-const id: number = 1;
-const item$: Observable<number> = from([1, 2, 3, 4])
-
-
-item$.pipe(
-  find((value: number, index: number) => value === id )
-).subscribe(data => console.log(data))
-
-
-item$.pipe(
-  takeLast(1),
-  startWith(20),
-  scan((acc: number, next: number) => acc + next, 0),
-  filter((value: number) => value > 5 ),
-  skip(1),
-  map((data: number) => ({ result: data })),
-  pluck('result'),
-).subscribe(data => console.log('sum', data))
-
-
-
-
-
-console.log('Common way', new Date())
-// const c: Observable<number> = a$.pipe(
-//   map((value: number) => )
-// )
-
-
-
-
-// source$.subscribe((value: Event) => {
-//   console.log('list2', value)
-// })
-
-
-// const subscription: Subscription = source$.subscribe((value: Event) => {
-//   console.log('list3', value)
-// })
-
-// subscription.unsubscribe()
-
-
-
-
-
-// old
-// source$.map(
-//   map((event: Event) => (event.target as any).value)
-// ).subscribe((value: string) => {
-//   console.log('value', value)
-// })
-
-
-
-// const sourse$ = from(['hello', 'worls']);
-
-
-// sourse$.subscribe((data: string) => {
-//   console.log(data)
-// })
-
-// interface IListener {
-//   update(msg: string): void
-// }
-
-// interface IObserver {
-//   add(listener: IListener): void;
-//   remove(listener: IListener): void;
-//   notify(msg: string, listener?: IListener[]): void;
-// }
-
-// class Observer implements IObserver {
-//   private _listeners: IListener[] = [];
-
-//   public add(listener: IListener): void {
-//     this._listeners.push(listener)
-//   }
-
-//   public remove(listener: IListener): void {
-//     const index: number = this._listeners.indexOf(listener);
-//     this._listeners.splice(index, 1)
-//   }
-
-//   public notify(msg: string, listeners: IListener[]): void {
-//     if(listeners) {
-//       return this._notifyListeners(listeners, msg)
-//     }
-
-//     return this._notifyListeners(this._listeners, msg)
-//   }
-
-//   private _notifyListeners(listeners: IListener[], msg: string): void {
-//     listeners.forEach((listener: IListener) => {
-//       listener.update(msg);
-//     })
-//   }
-
-// }
-
-// const listener1: IListener = {
-//   update(msg: string) {
-//     console.log(`listener1 ${msg}`)
-//   }
-// }
-
-// const listener2: IListener = {
-//   update(msg: string) {
-//     console.log(`listener2 ${msg}`)
-//   }
-// }
-
-// const listener3: IListener = {
-//   update(msg: string) {
-//     console.log(`listener3 ${msg}`)
-//   }
-// }
-
-// const listener4: IListener = {
-//   update(msg: string) {
-//     console.log(`listener4 ${msg}`)
-//   }
-// }
-
-// const observer: IObserver = new Observer();
-// observer.add(listener1);
-// observer.add(listener2);
-// observer.add(listener3);
-// // observer.remove(listener1)
-// observer.add(listener4);
-
-// observer.notify('Hello world');
-// observer.notify('Hello Rxjs', [listener1]);
-
-
-
-
-
-
+// filterData$.subscribe(createDom, (err: Error) => {
+//   console.log(err);
+// });
+const res = merge(filterData$, statusData$, genderData$);
+const res2 = merge(filter$, status$, gender$);
+// res.subscribe(createDom, (err: Error) => {
+//   console.log(err);
+// });
+res2.subscribe(val=>{
+  
+})
+// statusData$.subscribe(createDom, (err: Error) => {
+//   console.log(err);
+// });
+// genderData$.subscribe(createDom, (err: Error) => {
+//   console.log(err);
+// });

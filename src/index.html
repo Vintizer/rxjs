@@ -1,17 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Document</title>
-</head>
-<body>
-  <input type="text" id="refInput">
-  <div class="wrapper">
-    
-  </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Document</title>
+  </head>
+  <body>
+    <select id="gender">
+      <option value="AllGender">All</option>
+      <option value="Male">Male</option>
+      <option value="Female">Female</option>
+      <option value="unknownG">Unknown</option>
+    </select>
+    <br />
+    <select id="status">
+      <option value="AllStatus">All</option>
+      <option value="unknownS">Unknown</option>
+      <option value="Dead">Dead</option>
+      <option value="Alive">Alive</option>
+    </select>
+    <br />
+    <input type="text" id="refInput" />
+    <div class="wrapper"></div>
 
-  <button>Click me </button>
-</body>
+    <button id="getData">Click me</button>
+  </body>
 </html>
